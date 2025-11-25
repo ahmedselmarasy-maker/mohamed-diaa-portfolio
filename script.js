@@ -153,7 +153,7 @@ if (workCards.length > 0) {
 // Contact Form Handling
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
+    contactForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         // Get form values
@@ -175,12 +175,32 @@ if (contactForm) {
             return;
         }
 
-        // Here you would typically send the form data to a server
-        // For now, we'll just show a success message
-        alert('Thank you! Your message has been sent successfully. I will contact you soon.');
-        
-        // Reset form
-        contactForm.reset();
+        // POST the form data to Formspree so messages are delivered to your email
+        // Formspree endpoint is read from the form action or data-formspree-endpoint attribute
+        const endpoint = contactForm.getAttribute('data-formspree-endpoint') || contactForm.action;
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ name, email, subject, message })
+            });
+
+            if (response.ok) {
+                alert('Thank you! Your message has been sent successfully. I will contact you soon.');
+                contactForm.reset();
+            } else {
+                const data = await response.json().catch(() => ({}));
+                const errMsg = data.error || 'Something went wrong; your message was not sent.';
+                alert('Error: ' + errMsg + ' Please try again later.');
+            }
+        } catch (err) {
+            console.error('Form submit error:', err);
+            alert('Error sending message. Check your network connection and try again.');
+        }
     });
 }
 
