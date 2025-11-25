@@ -193,13 +193,32 @@ if (contactForm) {
         // Formspree endpoint is read from the form action or data-formspree-endpoint attribute
         const endpoint = contactForm.getAttribute('data-formspree-endpoint') || contactForm.action;
 
+        // Start a short watchdog - if fetch doesn't start within 3s we will fallback to normal submit
+        let fetchStarted = false;
+        const fallbackTimer = setTimeout(() => {
+            if (!fetchStarted) {
+                console.warn('Fetch did not start within timeout, falling back to normal submit');
+                const statusEl = document.getElementById('contact-status');
+                statusEl.style.color = 'var(--danger-color, #e11d48)';
+                statusEl.textContent = 'Taking longer than expected — trying standard submit...';
+                contactForm.dataset.fallback = '1';
+                contactForm.submit();
+            }
+        }, 3000);
+
         try {
+            console.log('Starting submit — preparing fetch to Formspree endpoint:', endpoint);
+            const statusElStarting = document.getElementById('contact-status');
+            statusElStarting.style.color = 'var(--text-primary)';
+            statusElStarting.textContent = 'Sending message...';
             // Use FormData to match a regular form submit (more compatible with Formspree)
             const formData = new FormData(contactForm);
             // include a reply-to header that Formspree commonly uses
             if (email) formData.set('_replyto', email);
             if (subject) formData.set('_subject', subject);
 
+            // mark that we are actually starting the fetch
+            fetchStarted = true;
             const response = await fetch(endpoint, {
                 method: 'POST',
                 // Do not set Content-Type when sending FormData — browser handles it
@@ -215,6 +234,7 @@ if (contactForm) {
             console.log('Formspree response body:', respData);
 
             const statusEl = document.getElementById('contact-status');
+            clearTimeout(fallbackTimer);
             if (response.ok) {
                 // show friendly inline message instead of alert
                 statusEl.style.color = 'var(--primary-color)';
@@ -231,6 +251,8 @@ if (contactForm) {
                 contactForm.submit();
             }
         } catch (err) {
+            clearTimeout(fallbackTimer);
+            console.error('Form submit error (caught):', err);
             console.error('Form submit error:', err);
             const statusEl = document.getElementById('contact-status');
             statusEl.style.color = 'var(--danger-color, #e11d48)';
