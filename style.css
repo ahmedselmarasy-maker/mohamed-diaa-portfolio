@@ -732,7 +732,9 @@ section {
 }
 
 .contact-details p {
-    color: var(--text-secondary);
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    font-weight: 500;
 }
 
 .contact-form-container {
