@@ -154,6 +154,10 @@ if (workCards.length > 0) {
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
     contactForm.addEventListener('submit', async (e) => {
+        // If fallback submit has been requested, allow default submit to proceed
+        if (contactForm.dataset.fallback === '1') {
+            return; // let browser do the normal form POST
+        }
         e.preventDefault();
         
         // Get form values
@@ -165,6 +169,16 @@ if (contactForm) {
         // Simple validation
         if (!name || !email || !subject || !message) {
             alert('Please fill in all fields');
+            return;
+        }
+
+        // Honeypot: if _gotcha is filled then likely a bot -> drop silently
+        const gotcha = document.getElementById('_gotcha');
+        if (gotcha && gotcha.value) {
+            console.warn('Honeypot triggered — dropping submission');
+            // Show local success so bots / scrapers don't get retries
+            document.getElementById('contact-status').textContent = 'Thanks — message received.';
+            contactForm.reset();
             return;
         }
 
@@ -200,16 +214,30 @@ if (contactForm) {
             const respData = await response.json().catch(() => ({}));
             console.log('Formspree response body:', respData);
 
+            const statusEl = document.getElementById('contact-status');
             if (response.ok) {
-                alert('Thank you! Your message has been sent successfully. I will contact you soon.');
+                // show friendly inline message instead of alert
+                statusEl.style.color = 'var(--primary-color)';
+                statusEl.textContent = 'Thank you — message sent successfully.';
                 contactForm.reset();
             } else {
                 const errMsg = respData.error || respData.message || 'Something went wrong; your message was not sent.';
-                alert('Error: ' + errMsg + ' Please try again later.');
+                // try fallback regular submit for better compatibility
+                statusEl.style.color = 'var(--danger-color, #e11d48)';
+                statusEl.textContent = 'Server refused the request — trying fallback...';
+                console.warn('Formspree returned non-OK, trying fallback form submit', respData);
+                // fall back: set a marker and do a normal submit so the browser will POST directly
+                contactForm.dataset.fallback = '1';
+                contactForm.submit();
             }
         } catch (err) {
             console.error('Form submit error:', err);
-            alert('Error sending message. Check your network connection and try again.');
+            const statusEl = document.getElementById('contact-status');
+            statusEl.style.color = 'var(--danger-color, #e11d48)';
+            statusEl.textContent = 'Network error — trying fallback submit...';
+            // fallback to normal form submit in case fetch/network blocked
+            contactForm.dataset.fallback = '1';
+            contactForm.submit();
         }
     });
 }
