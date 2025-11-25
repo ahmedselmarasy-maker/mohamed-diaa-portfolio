@@ -180,21 +180,31 @@ if (contactForm) {
         const endpoint = contactForm.getAttribute('data-formspree-endpoint') || contactForm.action;
 
         try {
+            // Use FormData to match a regular form submit (more compatible with Formspree)
+            const formData = new FormData(contactForm);
+            // include a reply-to header that Formspree commonly uses
+            if (email) formData.set('_replyto', email);
+            if (subject) formData.set('_subject', subject);
+
             const response = await fetch(endpoint, {
                 method: 'POST',
+                // Do not set Content-Type when sending FormData — browser handles it
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ name, email, subject, message })
+                body: formData
             });
+
+            // Better logging for debugging (open devtools or check browser console)
+            console.log('Formspree response status:', response.status);
+            const respData = await response.json().catch(() => ({}));
+            console.log('Formspree response body:', respData);
 
             if (response.ok) {
                 alert('Thank you! Your message has been sent successfully. I will contact you soon.');
                 contactForm.reset();
             } else {
-                const data = await response.json().catch(() => ({}));
-                const errMsg = data.error || 'Something went wrong; your message was not sent.';
+                const errMsg = respData.error || respData.message || 'Something went wrong; your message was not sent.';
                 alert('Error: ' + errMsg + ' Please try again later.');
             }
         } catch (err) {
